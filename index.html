@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memorial Space</title>
+    <style>
+        /* Add the @font-face rule for SUIT-Regular font */
+        @font-face {
+            font-family: 'SUIT-Regular';
+            src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_suit@1.0/SUIT-Regular.woff2') format('woff2');
+            font-weight: normal;
+            font-style: normal;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'SUIT-Regular', Arial, sans-serif; /* Apply the SUIT-Regular font */
+            background: linear-gradient(to bottom, #87ceeb, #f0f8ff);
+            overflow: hidden;
+            position: relative;
+            height: 100vh;
+        }
+        nav {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 28px 0;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        nav h1 {
+            margin: 0;
+            font-size: 18px; /* Reduced font size by 2pt (from 24px to 22px) */
+            color: #333;
+            font-weight: lighter; /* Set the font weight to lighter */
+            position: absolute;
+            left: 8%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+        }
+        #weather-display {
+            position: absolute;
+            top: 20%;
+            left: 10%; /* 2/6th of the page */
+            transform: translateX(-50%);
+            font-size: 18px;
+            color: #333;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 24px;
+            border-radius: 15px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+        }
+        #input-container {
+            position: absolute;
+            bottom: 50px; /* Increased the distance from the bottom */
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            max-width: 600px;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 16px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .floating-text {
+            position: absolute;
+            font-size: 18px;
+            color: rgba(0, 0, 0, 1);
+            pointer-events: none;
+            transition: opacity 0.2s ease, transform 0.3s ease;
+        }
+        .cursor-effect {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.8), rgba(255, 255, 0, 0));
+            border-radius: 50%;
+            pointer-events: none;
+            animation: dissipate 1s ease-out;
+            opacity: 0.8;
+        }
+        @keyframes dissipate {
+            0% {
+                transform: scale(1);
+                opacity: 0.8;
+            }
+            100% {
+                transform: scale(5);
+                opacity: 0;
+            }
+        }
+        /* Styles for the pop-up */
+        #popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            z-index: 9999;
+            display: block; /* Ensure the pop-up is visible */
+            width: 80%;
+            max-width: 500px;
+        }
+        #popup p {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        #popup button {
+            padding: 10px 20px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        #popup button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <h1>Memorial Space</h1>
+    </nav>
+    <div id="weather-display">Date: -- <br> Temperature: -- <br> Weather: --</div>
+    <div id="input-container">
+        <input type="text" id="textInput" placeholder="Enter your text...">
+    </div>
+    <!-- Popup Modal -->
+    <div id="popup">
+        <p>기억은 다른 사람에게 말하기 어려운 것들을 표현할 수 있는 공간입니다. 자유롭게 입력된 텍스트는 커서로 문자를 지우며, 시간이 지나면서 자연스럽게 사라집니다.</p>
+        <button id="close-popup">알겠습니다!</button>
+    </div>
+    <script>
+        const weatherDisplay = document.getElementById("weather-display");
+        const inputField = document.getElementById("textInput");
+        const popup = document.getElementById("popup");
+        const closePopupButton = document.getElementById("close-popup");
+        const weatherTypes = ["Clear", "Cloudy", "Rainy", "Snowy"];
+        let currentWeather;
+
+        // Close the pop-up when the "알겠습니다!" button is clicked
+        closePopupButton.addEventListener("click", () => {
+            popup.style.display = "none";
+        });
+
+        // Function to get today's date adjusted to Korea's time zone
+        function getKoreaTime() {
+            const now = new Date();
+            const koreaTime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
+            return koreaTime;
+        }
+
+        // Set fixed weather information for December 12th
+        function getFixedWeather() {
+            const koreaDate = new Date("2024-12-12T00:00:00+09:00"); // Dec 12th in Korea Time (Asia/Seoul)
+            const temperature = "-2°C"; // Typical temperature for Korea in December
+            const weather = "Snowy"; // Winter season, possibility of snow
+            return {
+                date: koreaDate.toLocaleDateString(),
+                temperature: temperature,
+                weather: weather
+            };
+        }
+
+        // Update weather display based on fixed weather
+        function updateWeatherDisplay() {
+            currentWeather = getFixedWeather(); // Use fixed weather data
+            const { date, temperature, weather } = currentWeather;
+            weatherDisplay.innerHTML = `Date: ${date} <br> Temperature: ${temperature} <br> Weather: ${weather}`;
+        }
+
+        // Initialize the weather display
+        updateWeatherDisplay();
+
+        // Update weather every 1 minute to check for date change
+        setInterval(updateWeatherDisplay, 60000); // Update every minute
+
+        function createFloatingText(text, weather) {
+            const floatingText = document.createElement("div");
+            floatingText.className = "floating-text";
+            floatingText.textContent = text;
+            const weatherHeight = weatherDisplay.offsetHeight;
+            const navHeight = document.querySelector("nav").offsetHeight;
+            const inputHeight = document.getElementById("input-container").offsetHeight;
+            const availableHeight = window.innerHeight - weatherHeight - navHeight - inputHeight - 50; // Ensure space between elements
+            let x = Math.random() * (window.innerWidth - 300) + 150; // Leave cushion around edges
+            // Ensure text appears below the weather box, above input, and does not overlap other elements
+            let y = Math.random() * availableHeight + weatherHeight + navHeight;
+            floatingText.style.left = `${x}px`;
+            floatingText.style.top = `${y}px`;
+            document.body.appendChild(floatingText);
+            const duration = weather === "Clear" ? 900 : weather === "Cloudy" ? 600 : 180; // Time in seconds
+            setTimeout(() => {
+                floatingText.remove();
+            }, duration * 1000);
+        }
+
+        inputField.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" && inputField.value.trim() !== "") {
+                event.preventDefault(); // Prevents the Enter key default behavior
+                const weather = updateWeatherDisplay();
+                createFloatingText(inputField.value.trim(), weather);
+                inputField.value = ""; // Clears the input field after submission
+            }
+        });
+
+        // Cursor effect for smoke/wave motion
+        document.addEventListener("mousemove", (event) => {
+            const cursorEffect = document.createElement("div");
+            cursorEffect.className = "cursor-effect";
+            cursorEffect.style.left = `${event.pageX - 10}px`;
+            cursorEffect.style.top = `${event.pageY - 10}px`;
+            document.body.appendChild(cursorEffect);
+            setTimeout(() => {
+                cursorEffect.remove();
+            }, 1000);
+        });
+
+        // Change opacity of floating text every time the cursor passes
+        document.addEventListener("mousemove", (event) => {
+            const floatingTexts = document.querySelectorAll(".floating-text");
+            floatingTexts.forEach((text) => {
+                const rect = text.getBoundingClientRect();
+                const distance = Math.hypot(
+                    rect.left + rect.width / 2 - event.clientX,
+                    rect.top + rect.height / 2 - event.clientY
+                );
+                // Decrease opacity each time the cursor passes near a floating text
+                if (distance < 100) {
+                    let currentOpacity = parseFloat(window.getComputedStyle(text).opacity);
+                    if (currentOpacity > 0) {
+                        text.style.opacity = currentOpacity - 0.1; // Faster decrease in opacity
+                    }
+                }
+            });
+        });
+
+        // Smooth move when cursor gets close to text
+        document.addEventListener("mousemove", (event) => {
+            const floatingTexts = document.querySelectorAll(".floating-text");
+            floatingTexts.forEach((text) => {
+                const rect = text.getBoundingClientRect();
+                const distance = Math.hypot(
+                    rect.left + rect.width / 2 - event.clientX,
+                    rect.top + rect.height / 2 - event.clientY
+                );
+                // Calculate direction to move
+                if (distance < 100) {
+                    const angle = Math.atan2(
+                        rect.top + rect.height / 2 - event.clientY,
+                        rect.left + rect.width / 2 - event.clientX
+                    );
+                    const pushDistance = 30; // Move a smaller amount for smoother motion
+                    const moveX = Math.cos(angle) * pushDistance;
+                    const moveY = Math.sin(angle) * pushDistance;
+                    // Smoothly update position using transform
+                    text.style.transform = `translate(${moveX}px, ${moveY}px)`;
+                }
+            });
+        });
+
+        // Initialize the weather display
+        updateWeatherDisplay();
+    </script>
+</body>
+</html>
